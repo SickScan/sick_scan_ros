@@ -1,0 +1,8 @@
+#pragma once
+
+#define SSBL_VERSION  "0.0.2"
+#define SSBL_VER_MAJOR "0"
+#define SSBL_VER_MINOR "0"
+#define SSBL_VER_PATCH "2"
+
+#define SSBL_GIT_REPOSITORY_VERSION "6d82e0a2189d41243c0d5f0c66d7e2341187d77f"
