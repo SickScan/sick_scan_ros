@@ -59,7 +59,6 @@ roslaunch  sick_scan_ros sick_tim_5xx.launch hostname:=192.168.0.71
 
 1. Check Scanner IP in the launch file.
 2. Check Ethernet connection to scanner with netcat e.g. ```nc -z -v -w5 $SCANNERIPADDRESS 2112```.
-   For further details about setting up the correct ip settings see [IP configuration](doc/ipconfig/ipconfig.md)
 3. View node startup output wether the IP connection could be established
 4. Check the scanner status using the LEDs on the device. The LED codes are described in the above mentioned operation manuals.
 5. Further testing and troubleshooting informations can found in the file test/readme_testplan.txt
@@ -104,7 +103,7 @@ source ~/ros_catkin_ws/install/setup.bash
 ## Quick Start
 
 ```bash
-roslaunch sick_scan sick_tim_5xx.launch
+roslaunch sick_scan_ros sick_tim_5xx.launch
 rosrun rviz rviz
 ```
 
