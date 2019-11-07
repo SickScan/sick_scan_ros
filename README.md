@@ -48,19 +48,12 @@ To start the scanner with a specific IP address, the launch command can be used 
 The hostname is the ip-address of the scanner:
 
 ```bash
-roslaunch <launch-file> hostname:=<ip-address>
+roslaunch sick_scan_ros sick_tim_5xx.launch hostname:=<ip-address>
 ```
 e.g.
 ```bash
-roslaunch sick_scan sick_tim_5xx.launch hostname:=192.168.0.71
+roslaunch  sick_scan_ros sick_tim_5xx.launch hostname:=192.168.0.71
 ```
-
-
-### Start Multiple Nodes
-
-Take the launchfile "sick_tim_5xx_twin.launch" as an example.
-Rempping the scan and cloud topics is essential to distinguish the scanndata and provide TF information.
-
 
 ## Troubleshooting
 
@@ -102,7 +95,7 @@ Rempping the scan and cloud topics is essential to distinguish the scanndata and
 source /opt/ros/<rosdistro>/setup.bash
 mkdir -p ~/ros_catkin_ws/src/
 cd ~/ros_catkin_ws/src/
-git clone -b devel --single-branch git://github.com/SICKAG/sick_scan_ros.git
+git clone -b devel --single-branch git://github.com/SickScan/sick_scan_ros.git
 cd ..
 catkin_make install
 source ~/ros_catkin_ws/install/setup.bash
