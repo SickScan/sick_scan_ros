@@ -354,7 +354,7 @@ int main(int argc, char **argv)
   }
 
   bool dutInitialized = false;
-  std::string nodeName = "sick_tim_5xx";//TODO wo bekommt man den her? ist wichtig für den ros param namespace
+  std::string nodeName = "sick_tim_5xx";
   ROS_INFO("%s", versionInfo.c_str());
   for (int i = 0; i < argc_tmp; i++)
   {
