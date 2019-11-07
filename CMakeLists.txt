@@ -102,8 +102,7 @@ find_package(PCL 1.7 REQUIRED COMPONENTS)
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
 # generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
+#   cfg/sick_scan_ros.cfg
 # )
 
 ###################################
@@ -150,10 +149,7 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 file( GLOB SRCS src/Mai*.cpp src/LaunchParser/private/*.cpp src/ParamHandle/private/*.cpp)
-file( GLOB TINYXML lib/ThirdParty/tinyxml/src/tiny*.cpp )
-file( GLOB TOOJPEG lib/ThirdParty/toojpeg/src/*.cpp )
-add_executable(sick_generic_lidar src/SickGenericLidar.cpp src/SickGenericParser.cpp ${TINYXML} ${TOOJPEG})
-add_executable(sick_scan_ros_jpeg_test ${SRCS} ${TINYXML} ${TOOJPEG})
+add_executable(sick_generic_lidar src/SickGenericLidar.cpp src/SickDeviceConfig.cpp)
 
 # make sure configure headers are built before any node using them
 # add_dependencies(${PROJECT_NAME}_node ${PROJECT_NAME}_gencfg)
@@ -169,11 +165,6 @@ add_executable(sick_scan_ros_jpeg_test ${SRCS} ${TINYXML} ${TOOJPEG})
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-
-
-target_link_libraries(sick_scan_ros_jpeg_test Threads::Threads
-  ${catkin_LIBRARIES} /home/rosuser/ssbl/sick_scan_ros/src/sick_scan_ros/lib/ssbl-0.0.2/lib/ssbl-core-linux-x86_64-gcc-7.4.0-s-dbg.a ${LIBRT}
-)
 
 target_link_libraries(sick_generic_lidar Threads::Threads
         ${catkin_LIBRARIES} /home/rosuser/ssbl/sick_scan_ros/src/sick_scan_ros/lib/ssbl-0.0.2/lib/ssbl-core-linux-x86_64-gcc-7.4.0-s-dbg.a ${LIBRT}

@@ -57,7 +57,7 @@
 *
 */
 
-// #include <sick_scan/sick_generic_parser.h>
+// #include <sick_scan/sick_generic_DeviceConfig.h>
 // #include <sick_scan/sick_generic_laser.h>
 
 
@@ -78,7 +78,7 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include "SickGenericParser.h"
+#include "SickDeviceConfig.h"
 
 
 #include "SSBL.h"
@@ -135,7 +135,7 @@ public:
 };
 
 
-
+//TODO change to SickDeviceConfig
 typedef struct
 {
   int32_t startAngle;
@@ -220,10 +220,6 @@ void OnScan(uint64_t *pEventData) {
       reinterpret_cast<myScanConfig_t *>(pEvent->CallbackParameter);
 
   printf("Received Event\n");
-  printf("Scan start angle: %.2lf degrees\n",
-         (double)pCfg->startAngle / 10000.00);
-  printf("Scan stop angle: %.2lf degrees\n",
-         (double)pCfg->stopAngle / 10000.00);
 
   pVar = dynamic_cast<ScanData_TiM5xxSkeleton_Var *>(pEvent->pComObj);
 
@@ -410,8 +406,8 @@ int main(int argc, char **argv)
 
   bool dutInitialized = false;
 
-
-  std::string nodeName = "sick_generic_lidar";
+//TODO wo bekommt man den her? ist wichtig für den ros param namespace
+  std::string nodeName = "sick_tim_5xx";
 
   for (int i = 0; i < argc; i++)
   {
@@ -442,6 +438,7 @@ int main(int argc, char **argv)
   std::string port;
 
   nhPriv.getParam("hostname", hostname);
+  nhPriv.setParam("test", "geht");
 
   nhPriv.param<std::string>("port", port, "2112");
 
@@ -453,23 +450,29 @@ int main(int argc, char **argv)
   nhPriv.param("subscribe_datagram", subscribe_datagram, false);
   nhPriv.param("device_number", device_number, 0);
 
-
-  scannerName = "sick_tim_5xx";
-  sick_scan::SickGenericParser *parser = new sick_scan::SickGenericParser(scannerName);
+  sick_scan::SickDeviceConfig *DeviceConfig = new sick_scan::SickDeviceConfig(scannerName);
 
   double param;
 
   if (nhPriv.getParam("range_min", param))
   {
-    parser->set_range_min(param);
+    DeviceConfig->set_range_min(param);
   }
   if (nhPriv.getParam("range_max", param))
   {
-    parser->set_range_max(param);
+    DeviceConfig->set_range_max(param);
+  }
+  if (nhPriv.getParam("max_ang", param))
+  {
+    DeviceConfig->getCurrentParamPtr()->setMaxAng(param);
+  }
+  if (nhPriv.getParam("min_ang", param))
+  {
+    DeviceConfig->getCurrentParamPtr()->setMinAng(param);
   }
   if (nhPriv.getParam("time_increment", param))
   {
-    parser->set_time_increment(param);
+    DeviceConfig->set_time_increment(param);
   }
 
   /*
@@ -486,7 +489,7 @@ int main(int argc, char **argv)
     }
     else
     {
-      if (parser->getCurrentParamPtr()->getNumberOfLayers() > 4)
+      if (DeviceConfig->getCurrentParamPtr()->getNumberOfLayers() > 4)
       {
         nhPriv.setParam("sopas_protocol_type", true);
         use_binary_protocol = true;
@@ -499,15 +502,15 @@ int main(int argc, char **argv)
         ROS_INFO("ASCII protocol activated");
       }
     }
-    parser->getCurrentParamPtr()->setUseBinaryProtocol(use_binary_protocol);
+    DeviceConfig->getCurrentParamPtr()->setUseBinaryProtocol(use_binary_protocol);
   }
 
 
   int result = 0;
 
 
-  gScanConfig.startAngle = (int32_t)round(10000.0 * -45.0);
-  gScanConfig.stopAngle = (int32_t)round(10000.0 * 225.0);
+  //gScanConfig.startAngle = (int32_t)round(10000.0 * -45.0);
+  //gScanConfig.stopAngle = (int32_t)round(10000.0 * 225.0);
 
 
   ROS_INFO("Start initialising scanner [Ip: %s] [Port: %s]", hostname.c_str(), port.c_str());
@@ -528,6 +531,11 @@ int main(int argc, char **argv)
     // Further details on PAGE 56!
     //===============================================================================
     if (SSBL_SUCCESS == DUT->ReadVariable(orVariable)) {
+      // Now let us change start and stop angle to get a scan from 0-90�.
+      // Note that the Lidar specific coordinate system is used in here.
+      // Note angle resolution can not be changed for TiM5xx
+      orVariable.Value_.aRange[0].diStartAngle = (int32_t)round(getDegrees(DeviceConfig->getCurrentParamPtr()->getMinAng())*10000);
+      orVariable.Value_.aRange[0].diStopAngle = (int32_t)round(getDegrees(DeviceConfig->getCurrentParamPtr()->getMaxAng())*10000);
       printf("Angle resolution: %8.3lf degrees\n",
              (double)orVariable.Value_.aRange[0].udiAngleRes / 10000.00);
 
@@ -536,20 +544,16 @@ int main(int argc, char **argv)
       printf("Stop angle: %8.3lf degrees\n",
              (double)orVariable.Value_.aRange[0].diStopAngle / 10000.00);
 
-      // Now let us change start and stop angle to get a scan from 0-90�.
-      // Note that the Lidar specific coordinate system is used in here.
-      // Note angle resolution can not be changed for TiM5xx
-      orVariable.Value_.aRange[0].diStartAngle = gScanConfig.startAngle;
-      orVariable.Value_.aRange[0].diStopAngle = gScanConfig.stopAngle;
+
       if (SSBL_SUCCESS == DUT->WriteVariable(orVariable)) {
         // Set the variable to some different value to observe that it has
         // really been written from the device
         orVariable.Value_.aRange[0].diStartAngle = 1;
         orVariable.Value_.aRange[0].diStopAngle = 1;
         if ((SSBL_SUCCESS != DUT->ReadVariable(orVariable)) ||
-            (gScanConfig.startAngle !=
+            (DeviceConfig->get_range_min() !=
              orVariable.Value_.aRange[0].diStartAngle) ||
-            (gScanConfig.stopAngle != orVariable.Value_.aRange[0].diStopAngle))
+            (DeviceConfig->get_range_max() != orVariable.Value_.aRange[0].diStopAngle))
 
         {
           printf("Error reading outputRange from the device");
@@ -749,9 +753,9 @@ int main(int argc, char **argv)
     }
   }
 
-  if (parser != NULL)
+  if (DeviceConfig != NULL)
   {
-    delete parser; // close parser
+    delete DeviceConfig; // close DeviceConfig
   }
   return result;
 

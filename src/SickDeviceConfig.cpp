@@ -55,7 +55,7 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
-#include "SickGenericParser.h"
+#include "SickDeviceConfig.h"
 // #include <sick_scan/sick_scan_common.h>
 #include <ros/ros.h>
 
@@ -164,11 +164,12 @@ namespace sick_scan
   \param _ptr to parameter object
   \sa getCurrentParamPtr
   */
-  void SickGenericParser::setCurrentParamPtr(ScannerBasicParam* _ptr)
+  /*
+  void SickDeviceConfig::setCurrentParamPtr(ScannerBasicParam* _ptr)
   {
     currentParamSet = _ptr;
   }
-
+*/
 
   /*!
   \brief Set angular resolution in degrees
@@ -233,6 +234,25 @@ namespace sick_scan
     return(this->elevationDegreeResolution);
   }
 
+  double ScannerBasicParam::getMinAng()
+  {
+    return(minAng);
+  }
+
+  double ScannerBasicParam::getMaxAng()
+  {
+    return(maxAng);
+  }
+
+  void ScannerBasicParam::setMaxAng(double _maxAng)
+  {
+    maxAng=_maxAng;
+  }
+
+  void ScannerBasicParam::setMinAng(double _minAng)
+  {
+    minAng=_minAng;
+  }
   /*!
   \brief flag to decide between usage of ASCII-sopas or BINARY-sopas
   \param _useBinary: True for binary, False for ASCII
@@ -343,7 +363,7 @@ namespace sick_scan
    \param _scanType Type of the Laserscanner
 
   */
-  SickGenericParser::SickGenericParser(std::string _scanType) :
+  SickDeviceConfig::SickDeviceConfig(std::string _scanType) :
       override_range_min_((float)0.05),
       override_range_max_((float)100.0),
       override_time_increment_((float)-1.0)
@@ -510,7 +530,7 @@ namespace sick_scan
   \brief Gets Pointer to parameter object
   \return Pointer to parameter object holding information about protocol usage and scanner type specific parameter
   */
-  ScannerBasicParam *SickGenericParser::getCurrentParamPtr()
+  ScannerBasicParam *SickDeviceConfig::getCurrentParamPtr()
   {
     return(currentParamSet);
   }
@@ -520,7 +540,7 @@ namespace sick_scan
   \param scannerName as string (e.g. "tim_5xx")
   \return index of found scanner. -1 corresponds to "not found"
   */
-  int SickGenericParser::lookUpForAllowedScanner(std::string scannerName)
+  int SickDeviceConfig::lookUpForAllowedScanner(std::string scannerName)
   {
     int iRet = -1;
     for (int i = 0; i < (int)allowedScannerNames.size(); i++)
@@ -536,112 +556,14 @@ namespace sick_scan
 
   /*!
   \brief Destructor of parser
-  \sa Constructor SickGenericParser
+  \sa Constructor SickDeviceConfig
   */
-  SickGenericParser::~SickGenericParser()
+  SickDeviceConfig::~SickDeviceConfig()
   {
   }
 
-  /*!
-  \brief check for DIST and RSSI-entries in the datagram. Helper routine for parser
 
-  \param fields: String entries holding the information
-  \param expected_number_of_data: Warning, if the number of found entries does not correspond to this entries
-  \param distNum: Number of found DIST-entries
-  \param rssiNum: Number of found RSSI-entries
-  \param distVal: parsed istance values
-  \param rssiVal: parsed RSSI-values
-  \param distMask: Bit-Masking holds the information of found DIST-entries (e.g. DIST1 -> Bit 0, DIST2 -> BIT 1 and so on)
-  \return Errorcode
-  \sa parse_datagram
-  */
-  int SickGenericParser::checkForDistAndRSSI(std::vector<char *>& fields, int expected_number_of_data, int& distNum, int& rssiNum, std::vector<float>& distVal, std::vector<float>& rssiVal, int& distMask)
-  {
-    int iRet = 0;
-    distNum = 0;
-    rssiNum = 0;
-    int baseOffset = 20;
-
-    distMask = 0;
-    // More in depth checks: check data length and RSSI availability
-    // 25: Number of data (<= 10F)
-    unsigned short int number_of_data = 0;
-    if (strstr(fields[baseOffset], "DIST") != fields[baseOffset]) // First initial check
-    {
-      ROS_WARN("Field 20 of received data does not start with DIST (is: %s). Unexpected data, ignoring scan", fields[20]);
-      return 0;
-    }
-
-    int offset = 20;
-    do
-    {
-      bool distFnd = false;
-      bool rssiFnd = false;
-      if (strlen(fields[offset]) == 5)
-      {
-        if (strstr(fields[offset], "DIST") == fields[offset])
-        {
-          distFnd = true;
-          distNum++;
-          int distId = -1;
-          if (1 == sscanf(fields[offset], "DIST%d", &distId))
-          {
-            distMask |= (1 << (distId - 1)); // set bit regarding to id
-          }
-        }
-        if (strstr(fields[offset], "RSSI") == fields[offset])
-        {
-          rssiNum++;
-          rssiFnd = true;
-        }
-      }
-      if (rssiFnd || distFnd)
-      {
-        offset += 5;
-        if (offset >= (int)fields.size())
-        {
-          ROS_WARN("Missing RSSI or DIST data");
-          return 0;
-        }
-        number_of_data = 0;
-        sscanf(fields[offset], "%hx", &number_of_data);
-        if (number_of_data != expected_number_of_data)
-        {
-          ROS_WARN("number of dist or rssi values mismatching.");
-          return 0;
-        }
-        offset++;
-        // Here is the first value
-        for (int i = 0; i < number_of_data; i++)
-        {
-          if (distFnd)
-          {
-            unsigned short iRange;
-            float range;
-            sscanf(fields[offset + i], "%hx", &iRange);
-            range = iRange / 1000.0;
-            distVal.push_back(range);
-          }
-          else
-          {
-            unsigned short iRSSI;
-            sscanf(fields[offset + i], "%hx", &iRSSI);
-            rssiVal.push_back((float)iRSSI);
-          }
-        }
-        offset += number_of_data;
-      }
-      else
-      {
-        offset++; // necessary????
-      }
-    } while (offset < (int)fields.size());
-
-    return(iRet);
-  }
-
-
-  void SickGenericParser::checkScanTiming(float time_increment, float scan_time, float angle_increment, float tol)
+  void SickDeviceConfig::checkScanTiming(float time_increment, float scan_time, float angle_increment, float tol)
   {
     if (this->getCurrentParamPtr()->getNumberOfLayers() > 1)
     {
@@ -666,7 +588,7 @@ namespace sick_scan
   \param min range in [m]
   \sa set_range_max
   */
-  void SickGenericParser::set_range_min(float min)
+  void SickDeviceConfig::set_range_min(float min)
   {
     override_range_min_ = min;
   }
@@ -676,7 +598,7 @@ namespace sick_scan
   \param max range in [m]
   \sa set_range_min
   */
-  void SickGenericParser::set_range_max(float max)
+  void SickDeviceConfig::set_range_max(float max)
   {
     override_range_max_ = max;
   }
@@ -687,7 +609,7 @@ namespace sick_scan
    \return range in [m]
    \sa set_range_max
    */
-  float SickGenericParser::get_range_max(void)
+  float SickDeviceConfig::get_range_max(void)
   {
     return(override_range_max_);
   }
@@ -697,7 +619,7 @@ namespace sick_scan
   \return range in [m]
   \sa set_range_min
   */
-  float SickGenericParser::get_range_min(void)
+  float SickDeviceConfig::get_range_min(void)
   {
     return(override_range_min_);
   }
@@ -707,7 +629,7 @@ namespace sick_scan
 
 \param time increment
 */
-  void SickGenericParser::set_time_increment(float time)
+  void SickDeviceConfig::set_time_increment(float time)
   {
     override_time_increment_ = time;
   }
@@ -718,7 +640,7 @@ namespace sick_scan
   \param _scannerType
   \sa getScannerType
   */
-  void SickGenericParser::setScannerType(std::string _scannerType)
+  void SickDeviceConfig::setScannerType(std::string _scannerType)
   {
     scannerType = _scannerType;
   }
@@ -728,7 +650,7 @@ namespace sick_scan
 
   \return scannerType
   */
-  std::string SickGenericParser::getScannerType(void) {
+  std::string SickDeviceConfig::getScannerType(void) {
     return(scannerType);
 
   }

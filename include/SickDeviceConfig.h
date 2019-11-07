@@ -49,6 +49,7 @@
 #define SICK_SCANNER_RMS_3XX_NAME "sick_rms_3xx"
 // #include "abstract_parser.h"
 
+#include <ros/ros.h>
 #include "sensor_msgs/LaserScan.h"
 // #include "sick_scan/sick_scan_common.h"
 // #include "sick_scan/dataDumper.h"
@@ -83,6 +84,12 @@ namespace sick_scan
     bool getUseSafetyPasWD();
     void setEncoderMode(int8_t _EncoderMode);
     int8_t getEncoderMode();
+    double getMinAng(void);
+    double getMaxAng(void);
+    double getMinAngDeg(void);
+    double getMaxAngDeg(void);
+    void setMinAng(double _minAng);
+    void setMaxAng(double _maxAng);
   private:
     std::string scannerName;
     int numberOfLayers;
@@ -91,6 +98,8 @@ namespace sick_scan
     double elevationDegreeResolution;
     double angleDegressResolution;
     double expectedFrequency;
+    double minAng;
+    double maxAng;
     bool useBinaryProtocol;
     bool IntensityResolutionIs16Bit;
     bool deviceIsRadar;
@@ -100,11 +109,11 @@ namespace sick_scan
   };
 
 
-  class SickGenericParser // : public AbstractParser
+  class SickDeviceConfig // : public AbstractParser
   {
   public:
-    SickGenericParser(std::string scannerType);
-    virtual ~SickGenericParser();
+    SickDeviceConfig(std::string scannerType);
+    virtual ~SickDeviceConfig();
 
 //    virtual int parse_datagram(char* datagram, size_t datagram_length, SickScanConfig &config,
 //                               sensor_msgs::LaserScan &msg, int &numEchos, int& echoMask);
@@ -124,11 +133,6 @@ namespace sick_scan
     int lookUpForAllowedScanner(std::string scannerName);
     void setCurrentParamPtr(ScannerBasicParam* _ptr);
     ScannerBasicParam *getCurrentParamPtr();
-
-
-    int checkForDistAndRSSI(std::vector<char *>& fields, int expected_number_of_data, int& distNum, int& rssiNum, std::vector<float>& distVal, std::vector<float>& rssiVal,int& distMask);
-
-
   private:
     float override_range_min_, override_range_max_;
     float override_time_increment_;
@@ -138,5 +142,7 @@ namespace sick_scan
     ScannerBasicParam *currentParamSet;
   };
 
-} /* namespace sick_scan */
+}
+
+/* namespace sick_scan */
 #endif /* SICK_GENERIC_PARSER_H_ */
