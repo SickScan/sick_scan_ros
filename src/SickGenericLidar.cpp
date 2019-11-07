@@ -204,6 +204,7 @@ void my_handler(int signalRecv)
   ROS_INFO("You are leaving the following version of this node:");
   ROS_INFO("%s", getVersionInfo().c_str());
   runState = scanner_finalize;
+  //DUT->DeregisterEvent("ScanData")
 
   ros::shutdown();
 }
@@ -216,8 +217,6 @@ void OnScan(uint64_t *pEventData) {
   ScanData_TiM5xxSkeleton_Var *pVar;
   SsblEventContainer *pEvent =
       reinterpret_cast<SsblEventContainer *>(pEventData);
-  myScanConfig_t *pCfg =
-      reinterpret_cast<myScanConfig_t *>(pEvent->CallbackParameter);
 
   printf("Received Event\n");
 
@@ -387,8 +386,9 @@ void OnScan(uint64_t *pEventData) {
 */
 int main(int argc, char **argv)
 {
-  std::string tag;
-  std::string val;
+  //std::string tag;
+  //std::string val;
+
 
 
   mStartMeasure_TiM5xxSkeleton_Func
@@ -404,23 +404,50 @@ int main(int argc, char **argv)
   std::vector<std::string> keys;
 
 
-  bool dutInitialized = false;
+  char **argv_tmp; // argv_tmp[0][0] argv_tmp[0] identisch ist zu (*argv_tmp)
+  int argc_tmp;
+  argc_tmp = argc;
+  argv_tmp = argv;
 
-//TODO wo bekommt man den her? ist wichtig für den ros param namespace
-  std::string nodeName = "sick_tim_5xx";
+  const int MAX_STR_LEN = 1024;
+  char nameTagVal[MAX_STR_LEN] = { 0 };
+  char logTagVal[MAX_STR_LEN] = { 0 };
+  char internalDebugTagVal[MAX_STR_LEN] = { 0 };
+  char sensorEmulVal[MAX_STR_LEN] = { 0 };
+  char nameId[] = "__name:=";
+  char nameVal[MAX_STR_LEN] = { 0 };
 
-  for (int i = 0; i < argc; i++)
+  if (argc == 1) // just for testing without calling by roslaunch
   {
-    std::string s = argv[i];
-    if (getTagVal(s, tag, val))
-    {
-      if (tag.compare("__internalDebug") == 0)
-      {
-        int debugState = 0;
-        sscanf(val.c_str(), "%d", &debugState);
+    // recommended call for internal debugging as an example: __name:=sick_rms_320 __internalDebug:=1
+    // strcpy(nameTagVal, "__name:=sick_rms_3xx");  // sick_rms_320 -> radar
+    strcpy(nameTagVal, "__name:=sick_tim_5xx");  // sick_rms_320 -> radar
+    strcpy(logTagVal, "__log:=/tmp/tmp.log");
+    strcpy(internalDebugTagVal, "__internalDebug:=1");
+    // strcpy(sensorEmulVal, "__emulSensor:=1");
+    strcpy(sensorEmulVal, "__emulSensor:=0");
+    argc_tmp = 5;
+    argv_tmp = (char **)malloc(sizeof(char *) * argc_tmp);
 
-      }
+    argv_tmp[0] = argv[0];
+    argv_tmp[1] = nameTagVal;
+    argv_tmp[2] = logTagVal;
+    argv_tmp[3] = internalDebugTagVal;
+    argv_tmp[4] = sensorEmulVal;
+
+  }
+
+  bool dutInitialized = false;
+  std::string nodeName = "sick_tim_5xx";//TODO wo bekommt man den her? ist wichtig für den ros param namespace
+  ROS_INFO("%s", versionInfo.c_str());
+  for (int i = 0; i < argc_tmp; i++)
+  {
+    if (strstr(argv_tmp[i], nameId) == argv_tmp[i])
+    {
+      strcpy(nameVal, argv_tmp[i] + strlen(nameId));
+      nodeName = nameVal;
     }
+    ROS_INFO("Program arguments: %s", argv_tmp[i]);
   }
 
   ros::init(argc, argv, nodeName, ros::init_options::NoSigintHandler);  // scannerName holds the node-name
@@ -534,8 +561,10 @@ int main(int argc, char **argv)
       // Now let us change start and stop angle to get a scan from 0-90�.
       // Note that the Lidar specific coordinate system is used in here.
       // Note angle resolution can not be changed for TiM5xx
-      orVariable.Value_.aRange[0].diStartAngle = (int32_t)round(getDegrees(DeviceConfig->getCurrentParamPtr()->getMinAng())*10000);
-      orVariable.Value_.aRange[0].diStopAngle = (int32_t)round(getDegrees(DeviceConfig->getCurrentParamPtr()->getMaxAng())*10000);
+      int32_t start_ang=(int32_t)round((getDegrees(DeviceConfig->getCurrentParamPtr()->getMinAng())+90)*10000);//Angel valus is transmitted in and 90 deg Rotated fram in Deg*10000 as int
+      int32_t stop_ang=(int32_t)round((getDegrees(DeviceConfig->getCurrentParamPtr()->getMaxAng())+90)*10000);
+      orVariable.Value_.aRange[0].diStartAngle = start_ang;
+      orVariable.Value_.aRange[0].diStopAngle = stop_ang;
       printf("Angle resolution: %8.3lf degrees\n",
              (double)orVariable.Value_.aRange[0].udiAngleRes / 10000.00);
 
@@ -551,9 +580,9 @@ int main(int argc, char **argv)
         orVariable.Value_.aRange[0].diStartAngle = 1;
         orVariable.Value_.aRange[0].diStopAngle = 1;
         if ((SSBL_SUCCESS != DUT->ReadVariable(orVariable)) ||
-            (DeviceConfig->get_range_min() !=
+            (start_ang !=
              orVariable.Value_.aRange[0].diStartAngle) ||
-            (DeviceConfig->get_range_max() != orVariable.Value_.aRange[0].diStopAngle))
+            (stop_ang != orVariable.Value_.aRange[0].diStopAngle))
 
         {
           printf("Error reading outputRange from the device");
@@ -623,22 +652,16 @@ int main(int argc, char **argv)
     //===============================================================================
     if (SSBL_SUCCESS !=
         DUT->RegisterEvent("ScanData", OnScan,
-                           reinterpret_cast<uint64_t>(&gScanConfig))) {
+                           NULL)) {
       printf("Error when trying to register to scan events");
       goto exit;
     }
 
 
-
-
-    //===============================================================================
-    // Lets loop around to observe some scan events
-    //===============================================================================
-    SSBL_Sleep(50000); // 50 Sek.
-
-    if (SSBL_SUCCESS == DUT->DeregisterEvent("ScanData")) {
-      // Sleep a while to see that there are no more incoming scans
-      SSBL_Sleep(5000);
+    while (ros::ok())
+    {
+      //Infinity loop to do nothin when programm is running
+      ros::Duration(0.5).sleep();
     }
     //===============================================================================
     // Disconnect from the Lidar
@@ -689,8 +712,10 @@ int main(int argc, char **argv)
             // Now let us change start and stop angle to get a scan from 0-90�.
             // Note that the Lidar specific coordinate system is used in here.
             // Note angle resolution can not be changed for TiM5xx
-            orVariable.Value_.aRange[0].diStartAngle = gScanConfig.startAngle;
-            orVariable.Value_.aRange[0].diStopAngle = gScanConfig.stopAngle;
+            int32_t start_ang=(int32_t)round((getDegrees(DeviceConfig->getCurrentParamPtr()->getMinAng())+90)*10000);
+            int32_t stop_ang=(int32_t)round((getDegrees(DeviceConfig->getCurrentParamPtr()->getMaxAng())+90)*10000);
+            orVariable.Value_.aRange[0].diStartAngle = start_ang;
+            orVariable.Value_.aRange[0].diStopAngle = stop_ang;
             if (SSBL_SUCCESS == DUT->WriteVariable(orVariable))
             {
               // Set the variable to some different value to observe that it has
@@ -698,9 +723,9 @@ int main(int argc, char **argv)
               orVariable.Value_.aRange[0].diStartAngle = 1;
               orVariable.Value_.aRange[0].diStopAngle = 1;
               if ((SSBL_SUCCESS != DUT->ReadVariable(orVariable)) ||
-                  (gScanConfig.startAngle !=
+                  (start_ang !=
                    orVariable.Value_.aRange[0].diStartAngle) ||
-                  (gScanConfig.stopAngle != orVariable.Value_.aRange[0].diStopAngle))
+                  (stop_ang!= orVariable.Value_.aRange[0].diStopAngle))
               {
                 printf("Error reading outputRange from the device");
                 exit(-1);
