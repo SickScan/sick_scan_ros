@@ -167,11 +167,11 @@ add_executable(sick_generic_lidar src/SickGenericLidar.cpp src/SickDeviceConfig.
 ## Specify libraries to link a library or executable target against
 
 target_link_libraries(sick_generic_lidar Threads::Threads
-        ${catkin_LIBRARIES} /home/rosuser/ssbl/sick_scan_ros/src/sick_scan_ros/lib/ssbl-0.0.2/lib/ssbl-core-linux-x86_64-gcc-7.4.0-s-dbg.a ${LIBRT}
+        ${catkin_LIBRARIES} ${CMAKE_CURRENT_SOURCE_DIR}/lib/ssbl-0.0.2/lib/ssbl-core-linux-x86_64-gcc-7.4.0-s-dbg.a ${LIBRT}
         )
 
 #############
-## Install ##
+## Install ##/home/rosuser/ssbl/sick_scan_ros
 #############
 
 # all install targets should use catkin DESTINATION variables

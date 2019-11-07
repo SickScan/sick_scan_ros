@@ -87,44 +87,66 @@ using namespace std;
 using namespace ssbl;
 using namespace DevTiM5xxSkeleton;
 
-static bool isInitialized = false;
-static std::string versionInfo = "???";
+static std::string versionInfo = "0.1";
 
 ros::Publisher cloud_pub_;
 
 const double DEG2RAD = 0.017453292;
 
-double getDegrees(double angleInRad) {
+double getDegrees(double angleInRad)
+{
   const double rad2deg = 180.0 / M_PI;
   return angleInRad * rad2deg;
 };
 
 
-class Point {
+class Point
+{
 private:
   double x_, y_, z_, intensity_;  // coordinates of the point
 
 public:
-  Point() {
+  Point()
+  {
     X(0.0);
     Y(0.0);
     Z(0.0);
     Intensity(0.0);
   }
-  Point(double x, double y) {
+
+  Point(double x, double y)
+  {
     Point();
     X(x);
     Y(y);
   }
-  double X() { return x_; }
-  double Y() { return y_; }
-  double Z() { return z_; }
-  double Intensity() { return intensity_; }
-  void X(double x) { x_ = x; }
-  void Y(double y) { y_ = y; }
-  void Z(double z) { z_ = z; }
-  void Intensity(double intensity) { intensity_ = intensity; }
-  static void testbed() {
+
+  double X()
+  { return x_; }
+
+  double Y()
+  { return y_; }
+
+  double Z()
+  { return z_; }
+
+  double Intensity()
+  { return intensity_; }
+
+  void X(double x)
+  { x_ = x; }
+
+  void Y(double y)
+  { y_ = y; }
+
+  void Z(double z)
+  { z_ = z; }
+
+  void Intensity(double intensity)
+  { intensity_ = intensity; }
+
+  static void testbed()
+  {
     Point p;
     p.X(10.0);
     p.Y(20.0);
@@ -133,21 +155,6 @@ public:
     printf("Test: %8.3lf,%8.3lf,%8.3lf\n", p.X(), p.Y(), p.Z());
   }
 };
-
-
-//TODO change to SickDeviceConfig
-typedef struct
-{
-  int32_t startAngle;
-  int32_t stopAngle;
-  uint32_t resolution;
-  std::string ipAddress;
-} myScanConfig_t;
-
-myScanConfig_t gScanConfig;
-
-// ParamHandle gParamHandle;
-
 
 void setVersionInfo(std::string _versionInfo)
 {
@@ -168,52 +175,20 @@ enum NodeRunState
 NodeRunState runState = scanner_init;  //
 
 
-/*!
-\brief splitting expressions like <tag>:=<value> into <tag> and <value>
-\param [In] tagVal: string expression like <tag>:=<value>
-\param [Out] tag: Tag after Parsing
-\param [Ozt] val: Value after Parsing
-\return Result of matching process (true: matching expression found, false: no match found)
-*/
-
-bool getTagVal(std::string tagVal, std::string &tag, std::string &val)
-{
-  bool ret = false;
-  std::size_t pos;
-  pos = tagVal.find(":=");
-  tag = "";
-  val = "";
-  if (pos == std::string::npos)
-  {
-    ret = false;
-  }
-  else
-  {
-    tag = tagVal.substr(0, pos);
-    val = tagVal.substr(pos + 2);
-    ret = true;
-  }
-  return (ret);
-}
-
-
-void my_handler(int signalRecv)
+void signalRecv_handler(int signalRecv)
 {
   ROS_INFO("Caught signal %d\n", signalRecv);
   ROS_INFO("good bye");
   ROS_INFO("You are leaving the following version of this node:");
   ROS_INFO("%s", getVersionInfo().c_str());
   runState = scanner_finalize;
-  //DUT->DeregisterEvent("ScanData")
-
-  ros::shutdown();
 }
-
 
 
 // Callback function which will be triggered when
 // scan data arrives
-void OnScan(uint64_t *pEventData) {
+void OnScan(uint64_t *pEventData)
+{
   ScanData_TiM5xxSkeleton_Var *pVar;
   SsblEventContainer *pEvent =
       reinterpret_cast<SsblEventContainer *>(pEventData);
@@ -234,16 +209,6 @@ void OnScan(uint64_t *pEventData) {
   std::vector<Point> pointVec;
   pointVec.resize(pointNum);
 
-  /*
-  memcpy(&scaleFactor, receiveBuffer + parseOff + 5, 4);
-  memcpy(&scaleFactorOffset, receiveBuffer + parseOff + 9, 4);
-  memcpy(&startAngleDiv10000, receiveBuffer + parseOff + 13, 4);
-  memcpy(&sizeOfSingleAngularStepDiv10000, receiveBuffer + parseOff + 17, 2);
-  memcpy(&numberOfItems, receiveBuffer + parseOff + 19, 2);
-
-  rangePtr[idx] = (float) data[i] *  scaleFactor_001 + scaleFactorOffset;
-  */
-
   float scaleFactor_001 =
       0.001F * pVar->Value_.aDataChannel16[0].DataChannelHdr.dScaleFactor;
   float scaleFactorOffset_001 =
@@ -251,7 +216,8 @@ void OnScan(uint64_t *pEventData) {
           .DataChannelHdr.dScaleOffset;  // Offset in [m]
 
   // convert to Cartesian coordinates in [m]
-  for (uint16_t dIdx = 0; dIdx < pointNum; dIdx++) {
+  for (uint16_t dIdx = 0; dIdx < pointNum; dIdx++)
+  {
     double dist = pVar->Value_.aDataChannel16[0].aData[dIdx];
 
     dist = dist * scaleFactor_001 +
@@ -265,7 +231,6 @@ void OnScan(uint64_t *pEventData) {
     pointVec[dIdx].Y(dist * sin(angle));
     startAngle = startAngle + resolution;
   }
-
 
 
   int numChannels = 4;
@@ -295,78 +260,34 @@ void OnScan(uint64_t *pEventData) {
   unsigned char *cloudDataPtr = &(cloud_.data[0]);
 
 
-    for (size_t i = 0; i < pointNum; i++)
+  for (size_t i = 0; i < pointNum; i++)
+  {
+    float x = pointVec[i].X();
+    float y = pointVec[i].Y();
+    float z = pointVec[i].Z();
+
+    enum enum_index_descr
     {
-      float x = pointVec[i].X();
-      float y = pointVec[i].Y();
-      float z = pointVec[i].Z();
+      idx_x,
+      idx_y,
+      idx_z,
+      idx_intensity,
+      idx_num
+    };
 
-      enum enum_index_descr
-      {
-        idx_x,
-        idx_y,
-        idx_z,
-        idx_intensity,
-        idx_num
-      };
+    long adroff = i * (numChannels * (int) sizeof(float));
+    float *fptr = (float *) (cloudDataPtr + adroff);
 
-      long adroff = i * (numChannels * (int) sizeof(float));
-      float  *fptr = (float *)(cloudDataPtr + adroff);
+    fptr[idx_x] = x;
+    fptr[idx_y] = y;
+    fptr[idx_z] = z;
 
-      fptr[idx_x] = x;
-      fptr[idx_y] = y;
-      fptr[idx_z] = z;
+    fptr[idx_intensity] = 0.0;
 
-      fptr[idx_intensity] = 0.0;
-
-    }
+  }
   // Publish
 
 
-
-#if 0
-
-  std::vector<Point> pointVec;
-  pointVec.resize(pointNum);
-
-  /*
-  memcpy(&scaleFactor, receiveBuffer + parseOff + 5, 4);
-  memcpy(&scaleFactorOffset, receiveBuffer + parseOff + 9, 4);
-  memcpy(&startAngleDiv10000, receiveBuffer + parseOff + 13, 4);
-  memcpy(&sizeOfSingleAngularStepDiv10000, receiveBuffer + parseOff + 17, 2);
-  memcpy(&numberOfItems, receiveBuffer + parseOff + 19, 2);
-
-  rangePtr[idx] = (float) data[i] *  scaleFactor_001 + scaleFactorOffset;
-  */
-
-  float scaleFactor_001 =
-      0.001F * pVar->Value_.aDataChannel16[0].DataChannelHdr.dScaleFactor;
-  float scaleFactorOffset_001 =
-      0.001F * pVar->Value_.aDataChannel16[0]
-          .DataChannelHdr.dScaleOffset;  // Offset in [m]
-
-  // convert to Cartesian coordinates in [m]
-  for (uint16_t dIdx = 0; dIdx < pointNum; dIdx++) {
-    double dist = pVar->Value_.aDataChannel16[0].aData[dIdx];
-
-    dist = dist * scaleFactor_001 +
-           scaleFactorOffset_001;  // Convert from distance units to [m]
-    double angle = startAngle / 10000.0;
-    angle = angle * DEG2RAD;
-    angle -=
-        M_PI /
-        2.0;  // Working range diagram shows 90 degrees in direction of X-Axis
-    pointVec[dIdx].X(dist * cos(angle));
-    pointVec[dIdx].Y(dist * sin(angle));
-    startAngle = startAngle + resolution;
-  }
-
-  DataExporter dataExporter;
-  dataExporter.writeJpeg(
-      &pointVec);  // write example jpeg file with top view of scan
-  dataExporter.writeCSV(&pointVec);  // write csv file with shot information
-#endif
-  // please delete the data after processing
   delete pEventData;
 
   cloud_pub_.publish(cloud_);
@@ -380,16 +301,11 @@ void OnScan(uint64_t *pEventData) {
 \brief Internal Startup routine.
 \param argc: Number of Arguments
 \param argv: Argument variable
-\param nodeName name of the ROS-node
 \return exit-code
 \sa main
 */
 int main(int argc, char **argv)
 {
-  //std::string tag;
-  //std::string val;
-
-
 
   mStartMeasure_TiM5xxSkeleton_Func
       startFunction;  // Function which puts the Lidar into measurement mode
@@ -410,12 +326,12 @@ int main(int argc, char **argv)
   argv_tmp = argv;
 
   const int MAX_STR_LEN = 1024;
-  char nameTagVal[MAX_STR_LEN] = { 0 };
-  char logTagVal[MAX_STR_LEN] = { 0 };
-  char internalDebugTagVal[MAX_STR_LEN] = { 0 };
-  char sensorEmulVal[MAX_STR_LEN] = { 0 };
+  char nameTagVal[MAX_STR_LEN] = {0};
+  char logTagVal[MAX_STR_LEN] = {0};
+  char internalDebugTagVal[MAX_STR_LEN] = {0};
+  char sensorEmulVal[MAX_STR_LEN] = {0};
   char nameId[] = "__name:=";
-  char nameVal[MAX_STR_LEN] = { 0 };
+  char nameVal[MAX_STR_LEN] = {0};
 
   if (argc == 1) // just for testing without calling by roslaunch
   {
@@ -427,7 +343,7 @@ int main(int argc, char **argv)
     // strcpy(sensorEmulVal, "__emulSensor:=1");
     strcpy(sensorEmulVal, "__emulSensor:=0");
     argc_tmp = 5;
-    argv_tmp = (char **)malloc(sizeof(char *) * argc_tmp);
+    argv_tmp = (char **) malloc(sizeof(char *) * argc_tmp);
 
     argv_tmp[0] = argv[0];
     argv_tmp[1] = nameTagVal;
@@ -451,7 +367,7 @@ int main(int argc, char **argv)
   }
 
   ros::init(argc, argv, nodeName, ros::init_options::NoSigintHandler);  // scannerName holds the node-name
-  signal(SIGINT, my_handler);
+  signal(SIGINT, signalRecv_handler);
 
   ros::NodeHandle nhPriv("~");
 
@@ -465,7 +381,6 @@ int main(int argc, char **argv)
   std::string port;
 
   nhPriv.getParam("hostname", hostname);
-  nhPriv.setParam("test", "geht");
 
   nhPriv.param<std::string>("port", port, "2112");
 
@@ -481,14 +396,6 @@ int main(int argc, char **argv)
 
   double param;
 
-  if (nhPriv.getParam("range_min", param))
-  {
-    DeviceConfig->set_range_min(param);
-  }
-  if (nhPriv.getParam("range_max", param))
-  {
-    DeviceConfig->set_range_max(param);
-  }
   if (nhPriv.getParam("max_ang", param))
   {
     DeviceConfig->getCurrentParamPtr()->setMaxAng(param);
@@ -532,14 +439,6 @@ int main(int argc, char **argv)
     DeviceConfig->getCurrentParamPtr()->setUseBinaryProtocol(use_binary_protocol);
   }
 
-
-  int result = 0;
-
-
-  //gScanConfig.startAngle = (int32_t)round(10000.0 * -45.0);
-  //gScanConfig.stopAngle = (int32_t)round(10000.0 * 225.0);
-
-
   ROS_INFO("Start initialising scanner [Ip: %s] [Port: %s]", hostname.c_str(), port.c_str());
 
 
@@ -552,29 +451,33 @@ int main(int argc, char **argv)
   //===============================================================================
   // Step 2) Connect to the Lidar
   //===============================================================================
-  if (SSBL_SUCCESS == DUT->Connect()) {
+  if (SSBL_SUCCESS == DUT->Connect())
+  {
     //===============================================================================
     // Step 3) Read the output range currently employed by the device
     // Further details on PAGE 56!
     //===============================================================================
-    if (SSBL_SUCCESS == DUT->ReadVariable(orVariable)) {
+    if (SSBL_SUCCESS == DUT->ReadVariable(orVariable))
+    {
       // Now let us change start and stop angle to get a scan from 0-90�.
       // Note that the Lidar specific coordinate system is used in here.
       // Note angle resolution can not be changed for TiM5xx
-      int32_t start_ang=(int32_t)round((getDegrees(DeviceConfig->getCurrentParamPtr()->getMinAng())+90)*10000);//Angel valus is transmitted in and 90 deg Rotated fram in Deg*10000 as int
-      int32_t stop_ang=(int32_t)round((getDegrees(DeviceConfig->getCurrentParamPtr()->getMaxAng())+90)*10000);
+      int32_t start_ang = (int32_t) round((getDegrees(DeviceConfig->getCurrentParamPtr()->getMinAng()) + 90) *
+                                          10000);//Angel value is set90 deg rotated frame in Deg*10000 as int32
+      int32_t stop_ang = (int32_t) round((getDegrees(DeviceConfig->getCurrentParamPtr()->getMaxAng()) + 90) * 10000);
       orVariable.Value_.aRange[0].diStartAngle = start_ang;
       orVariable.Value_.aRange[0].diStopAngle = stop_ang;
       printf("Angle resolution: %8.3lf degrees\n",
-             (double)orVariable.Value_.aRange[0].udiAngleRes / 10000.00);
+             (double) orVariable.Value_.aRange[0].udiAngleRes / 10000.00);
 
       printf("Start angle: %8.3lf degrees\n",
-             (double)orVariable.Value_.aRange[0].diStartAngle / 10000.00);
+             (double) orVariable.Value_.aRange[0].diStartAngle / 10000.00);
       printf("Stop angle: %8.3lf degrees\n",
-             (double)orVariable.Value_.aRange[0].diStopAngle / 10000.00);
+             (double) orVariable.Value_.aRange[0].diStopAngle / 10000.00);
 
 
-      if (SSBL_SUCCESS == DUT->WriteVariable(orVariable)) {
+      if (SSBL_SUCCESS == DUT->WriteVariable(orVariable))
+      {
         // Set the variable to some different value to observe that it has
         // really been written from the device
         orVariable.Value_.aRange[0].diStartAngle = 1;
@@ -583,17 +486,21 @@ int main(int argc, char **argv)
             (start_ang !=
              orVariable.Value_.aRange[0].diStartAngle) ||
             (stop_ang != orVariable.Value_.aRange[0].diStopAngle))
-
         {
           printf("Error reading outputRange from the device");
           goto exit;
-        } else {
+        }
+        else
+        {
           // Now you could store this configuration. Note that the embedded
           // flash might have limited number of write cycles. Therefore, one
           // should only store parameters if it's required.
         }
-      } else {
-        if (SSBL_SUCCESS != DUT->ReadVariable(orVariable)) {
+      }
+      else
+      {
+        if (SSBL_SUCCESS != DUT->ReadVariable(orVariable))
+        {
           printf("Error while setting the scan range");
           goto exit;
         }
@@ -604,7 +511,8 @@ int main(int argc, char **argv)
     // Step 4) Read the scan output configuration from the device
     // Further details on PAGE 55!
     //===============================================================================
-    if (SSBL_SUCCESS == DUT->ReadVariable(sdcVariable)) {
+    if (SSBL_SUCCESS == DUT->ReadVariable(sdcVariable))
+    {
       sdcVariable.Value_.DistDataConfig[0] = 1;      // Enable output channel 1
       sdcVariable.Value_.DistDataConfig[1] = 0;      // (distance values)
       sdcVariable.Value_.RemDataConfig.bEnable = 1;  // Enable Remission / RSSI
@@ -620,7 +528,8 @@ int main(int argc, char **argv)
 
       sdcVariable.Value_.uiOutputInterval =
           1;  // no downsampling we want all scans
-      if (SSBL_SUCCESS != DUT->WriteVariable(sdcVariable)) {
+      if (SSBL_SUCCESS != DUT->WriteVariable(sdcVariable))
+      {
         printf("Error while setting the scan output configuration");
         goto exit;
       }
@@ -630,7 +539,8 @@ int main(int argc, char **argv)
     // Step 5.1) Put the Lidar to measurement mode
     // Further details on PAGE 32!
     //===============================================================================
-    if (SSBL_SUCCESS != DUT->CallFunction(startFunction)) {
+    if (SSBL_SUCCESS != DUT->CallFunction(startFunction))
+    {
       printf("Error when trying to put the Lidar into measurement mode");
       goto exit;
     }
@@ -639,7 +549,8 @@ int main(int argc, char **argv)
     // Step 5.2) Put the Lidar to run mode
     // Further details on PAGE 53!
     //===============================================================================
-    if (SSBL_SUCCESS != DUT->CallFunction(runFunction)) {
+    if (SSBL_SUCCESS != DUT->CallFunction(runFunction))
+    {
       printf("Error when trying to put the Lidar into run mode");
       goto exit;
     }
@@ -652,22 +563,25 @@ int main(int argc, char **argv)
     //===============================================================================
     if (SSBL_SUCCESS !=
         DUT->RegisterEvent("ScanData", OnScan,
-                           NULL)) {
+                           NULL))
+    {
       printf("Error when trying to register to scan events");
       goto exit;
     }
 
-
+    runState = scanner_run;
     while (ros::ok())
     {
       //Infinity loop to do nothin when programm is running
       ros::Duration(0.5).sleep();
+      ros::spinOnce();
     }
     //===============================================================================
     // Disconnect from the Lidar
     //===============================================================================
     exit:
-    if (dutInitialized) {
+    if (dutInitialized)
+    {
       DUT->Disconnect();
     }
   }
@@ -676,113 +590,6 @@ int main(int argc, char **argv)
 
   return 0;
 
-
-
-
-  while (ros::ok())
-  {
-    switch (runState)
-    {
-      case scanner_init:
-
-//===============================================================================
-        // Step 1) Create a Lidar Skeleton (change the IP to your needs)
-        //===============================================================================
-
-        dutInitialized = true;
-        //===============================================================================
-        // Step 2) Connect to the Lidar
-        //===============================================================================
-        if (SSBL_SUCCESS == DUT->Connect())
-        {
-          //===============================================================================
-          // Step 3) Read the output range currently employed by the device
-          // Further details on PAGE 56!
-          //===============================================================================
-          if (SSBL_SUCCESS == DUT->ReadVariable(orVariable))
-          {
-            printf("Angle resolution: %8.3lf degrees\n",
-                   (double) orVariable.Value_.aRange[0].udiAngleRes / 10000.00);
-
-            printf("Start angle: %8.3lf degrees\n",
-                   (double) orVariable.Value_.aRange[0].diStartAngle / 10000.00);
-            printf("Stop angle: %8.3lf degrees\n",
-                   (double) orVariable.Value_.aRange[0].diStopAngle / 10000.00);
-
-            // Now let us change start and stop angle to get a scan from 0-90�.
-            // Note that the Lidar specific coordinate system is used in here.
-            // Note angle resolution can not be changed for TiM5xx
-            int32_t start_ang=(int32_t)round((getDegrees(DeviceConfig->getCurrentParamPtr()->getMinAng())+90)*10000);
-            int32_t stop_ang=(int32_t)round((getDegrees(DeviceConfig->getCurrentParamPtr()->getMaxAng())+90)*10000);
-            orVariable.Value_.aRange[0].diStartAngle = start_ang;
-            orVariable.Value_.aRange[0].diStopAngle = stop_ang;
-            if (SSBL_SUCCESS == DUT->WriteVariable(orVariable))
-            {
-              // Set the variable to some different value to observe that it has
-              // really been written from the device
-              orVariable.Value_.aRange[0].diStartAngle = 1;
-              orVariable.Value_.aRange[0].diStopAngle = 1;
-              if ((SSBL_SUCCESS != DUT->ReadVariable(orVariable)) ||
-                  (start_ang !=
-                   orVariable.Value_.aRange[0].diStartAngle) ||
-                  (stop_ang!= orVariable.Value_.aRange[0].diStopAngle))
-              {
-                printf("Error reading outputRange from the device");
-                exit(-1);
-              }
-              else
-              {
-                // Now you could store this configuration. Note that the embedded
-                // flash might have limited number of write cycles. Therefore, one
-                // should only store parameters if it's required.
-              }
-            }
-            else
-            {
-              if (SSBL_SUCCESS != DUT->ReadVariable(orVariable))
-              {
-                printf("Error while setting the scan range");
-                exit(-1);
-              }
-            }
-          }
-
-          isInitialized = true;
-          signal(SIGINT, SIG_DFL); // change back to standard signal handler after initialising
-
-          runState = scanner_run; // after initialising switch to run state
-        }
-        else
-        {
-          runState = scanner_init; // If there was an error, try to restart scanner
-
-        }
-        break;
-
-      case scanner_run:
-        if (result == 0) // OK -> loop again
-        {
-          // schaue nach, ob neue Scan-Daten da sind ...
-          ros::spinOnce();
-          // result = s->loopOnce();
-        }
-        else
-        {
-          runState = scanner_finalize; // interrupt
-        }
-      case scanner_finalize:
-        break; // ExitError or similiar -> interrupt while-Loop
-      default:
-        ROS_ERROR("Invalid run state in main loop");
-        break;
-    }
-  }
-
-  if (DeviceConfig != NULL)
-  {
-    delete DeviceConfig; // close DeviceConfig
-  }
-  return result;
 
 }
 
